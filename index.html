@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
 <title>Snapper — Trade Smarter</title>
+<script>
+if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
+  document.documentElement.classList.add('entrance-pending');
+  window.__entranceFallback=setTimeout(()=>document.documentElement.classList.remove('entrance-pending'),4000);
+}
+</script>
 <style>
 /* ------------------------------------------------------------------
    Embedded fonts (subset, WOFF2) — fully offline
@@ -307,6 +313,27 @@ svg{display:block}
 .side-more .navitem{color:#bdbbbb}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* Initial states only. The page remains fully visible when JavaScript is unavailable. */
+html.entrance-pending .topnav .logo,
+html.entrance-pending .topnav .nav-cta,
+html.entrance-pending .topnav .menu-btn,
+html.entrance-pending .lead,
+html.entrance-pending .actions .btn,
+html.entrance-pending .panel .head,
+html.entrance-pending .panel .side-nav,
+html.entrance-pending .panel .stat.s1{opacity:0;transform:translateY(8px)}
+@media (min-width:900px) and (min-aspect-ratio:23/20){
+  html.entrance-pending .topnav .nav-links a{opacity:0;transform:translateY(5px)}
+  html.entrance-pending .h1 .l1,
+  html.entrance-pending .h1 .l2{opacity:0;clip-path:inset(100% 0 0 0)}
+  html.entrance-pending .panel .stat.s2,
+  html.entrance-pending .panel .sales{opacity:0;transform:translateY(8px)}
+  html.entrance-pending .panel .cal{opacity:0;transform:translateY(10px) scale(.985)}
+}
+@media (max-width:899.98px), (max-aspect-ratio:23/20){
+  html.entrance-pending .h1{opacity:0;clip-path:inset(100% 0 0 0)}
+}
 </style>
 </head>
 <body>
@@ -552,6 +579,71 @@ const nav=document.getElementById('nav'), mb=document.getElementById('menuBtn');
 mb.addEventListener('click',()=>{const o=nav.classList.toggle('open');mb.setAttribute('aria-expanded',o)});
 document.addEventListener('click',e=>{if(!nav.contains(e.target)){nav.classList.remove('open');mb.setAttribute('aria-expanded','false')}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){nav.classList.remove('open');mb.setAttribute('aria-expanded','false')}});
+})();
+</script>
+<script>
+(()=>{
+  'use strict';
+  const root=document.documentElement;
+  if(!root.classList.contains('entrance-pending')) return;
+  const desktop=matchMedia('(min-width:900px) and (min-aspect-ratio:23/20)').matches;
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+  const animations=[];
+  const prepared=new Set();
+  let complete=false;
+  const ease='cubic-bezier(.22,1,.36,1)';
+  const add=(selector,delay,duration,from,options={})=>{
+    document.querySelectorAll(selector).forEach((element,index)=>{
+      prepared.add(element);
+      element.style.willChange=options.clip?'opacity, clip-path':'opacity, transform';
+      const start=options.clip?{opacity:0,clipPath:'inset(100% 0 0 0)'}:{opacity:0,transform:from};
+      const end=options.clip?{opacity:1,clipPath:'inset(0 0 0 0)'}:{opacity:1,transform:'none'};
+      animations.push(element.animate([start,end],{
+        duration,delay:delay+index*(options.stagger||0),easing:ease,fill:'both'
+      }));
+    });
+  };
+  const finish=()=>{
+    if(complete) return;
+    complete=true;
+    clearTimeout(window.__entranceFallback);
+    root.classList.remove('entrance-pending');
+    animations.forEach(animation=>animation.cancel());
+    prepared.forEach(element=>element.style.willChange='');
+    reduced.removeEventListener('change',onPreferenceChange);
+  };
+  const onPreferenceChange=()=>{if(reduced.matches) finish()};
+  reduced.addEventListener('change',onPreferenceChange);
+
+  // The static background frames the entrance; the brand and navigation arrive quietly.
+  add('.topnav .logo',70,490,'translateY(6px)');
+  if(desktop){
+    add('.topnav .nav-links a',130,400,'translateY(5px)',{stagger:42});
+  }else{
+    add('.topnav .menu-btn',190,420,'translateY(5px)');
+  }
+  add('.topnav .nav-cta',230,460,'translateY(6px)');
+
+  // The headline opens in reading order while the supporting copy overlaps its finish.
+  if(desktop){
+    add('.h1 .l1',290,850,null,{clip:true});
+    add('.h1 .l2',450,850,null,{clip:true});
+  }else{
+    add('.h1',290,950,null,{clip:true});
+  }
+  add('.lead',750,550,'translateY(10px)');
+  add('.actions .btn',960,510,'translateY(8px)',{stagger:110});
+
+  // The dashboard surface stays fixed; its foreground interface completes the composition.
+  add('.panel .head',1100,590,'translateY(7px)');
+  add('.panel .side-nav',1210,550,'translateY(7px)');
+  add('.panel .stat.s1',1330,640,'translateY(10px)');
+  if(desktop){
+    add('.panel .stat.s2',1400,640,'translateY(10px)');
+    add('.panel .sales',1480,590,'translateY(8px)');
+    add('.panel .cal',1510,680,'translateY(10px) scale(.985)');
+  }
+  Promise.all(animations.map(animation=>animation.finished.catch(()=>{}))).then(finish);
 })();
 </script>
 </body>
